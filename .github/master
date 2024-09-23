@@ -1,0 +1,51 @@
+import yfinance as yf
+import pandas as pd
+import streamlit as st
+
+# Function to fetch financials data from Yahoo Finance
+def get_financials(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        financials = stock.financials.transpose()  # Transposed to match our expected format
+        return financials
+    except Exception as e:
+        st.error(f"Error fetching data for {ticker}: {e}")
+        return None
+
+# Function to check consistent growth over 2-year periods for Revenue and EBITDA
+def consistent_growth(data):
+    try:
+        revenue = data.loc['Total Revenue']
+        ebitda = data.loc['EBITDA']
+    except KeyError:
+        st.warning("Missing Revenue or EBITDA data.")
+        return False
+
+    for i in range(len(revenue) - 2):
+        if revenue[i + 2] <= revenue[i] or ebitda[i + 2] <= ebitda[i]:
+            return False
+    return True
+
+# Function to filter companies that meet the growth criteria
+def filter_companies(tickers):
+    passed_companies = []
+    for ticker in tickers:
+        financials = get_financials(ticker)
+        if financials is not None and consistent_growth(financials):
+            passed_companies.append(ticker)
+    return passed_companies
+
+# Streamlit App
+st.title("Consistent Growth Stock Filter")
+
+# Input: list of stock tickers (comma-separated)
+tickers_input = st.text_input("Enter stock tickers (comma-separated):", "AAPL, MSFT, TSLA")
+tickers = [ticker.strip() for ticker in tickers_input.split(",")]
+
+if st.button("Run Filter"):
+    filtered_companies = filter_companies(tickers)
+    
+    if filtered_companies:
+        st.success(f"Companies with consistent growth over any 2-year horizon: {', '.join(filtered_companies)}")
+    else:
+        st.warning("No companies meet the criteria.")
